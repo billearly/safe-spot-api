@@ -1,4 +1,10 @@
-// import httpServer from "http";
+/**
+ * TODO:
+ * This is way too highly coupled with the game logic. If this is going to be deployed as a lambda
+ * then almost all of this 'server' code is for local development only
+ * need to have a better line so that the handoff is smooth
+ */
+
 import "dotenv/config";
 import { Server, ServerOptions, Socket } from "socket.io";
 import { customAlphabet } from "nanoid";
@@ -10,7 +16,7 @@ import {
   isBombSpot,
   updateTileAndNeighbors,
 } from "./game";
-import { Game, GameBoard, Tile } from "./types";
+import { ClientInfo, Game, GameBoard, GameState, Tile } from "./types";
 
 const nanoid = customAlphabet("1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ", 6);
 
@@ -20,17 +26,17 @@ const bombPercentage = 18;
 const numBombs = Math.floor(rows * columns * (bombPercentage / 100));
 
 type CreateGamePayload = {
-  creator: string;
+  client: ClientInfo;
 };
 
 type JoinGamePayload = {
   gameId: string;
-  userId: string;
+  client: ClientInfo;
 };
 
 type MoveMadePayload = {
   gameId: string;
-  userId: string;
+  client: ClientInfo;
   tile: Tile;
 };
 
@@ -38,8 +44,8 @@ interface ServerToClientEvents {
   connected: (message: string) => void;
   gameCreated: (payload: { gameId: string }) => void;
   gameJoined: (message: string) => void;
-  gameStarted: (payload: { board: GameBoard }) => void;
-  moveMade: (payload: { board: GameBoard }) => void;
+  gameStarted: (payload: { game: GameState }) => void;
+  moveMade: (payload: { game: GameState }) => void;
 }
 
 interface ClientToServerEvents {
@@ -72,7 +78,7 @@ io.on("connection", (socket) => {
   socket.emit("connected", `Your socket ID is ${socket.id}`);
 
   socket.on("createGame", (payload) => {
-    const { creator } = payload as unknown as CreateGamePayload;
+    const { client } = payload as unknown as CreateGamePayload;
 
     let gameCreated = false;
     let gameId: string;
@@ -87,8 +93,8 @@ io.on("connection", (socket) => {
           id: gameId,
           board: gameBoard,
           isStarted: false,
-          creator,
-          player1: creator,
+          creator: client,
+          player1: client,
           player2: undefined,
           moves: [],
         });
@@ -102,7 +108,8 @@ io.on("connection", (socket) => {
   });
 
   socket.on("joinGame", (payload) => {
-    const { gameId, userId } = payload as unknown as JoinGamePayload;
+    console.log("game joined");
+    const { gameId, client } = payload as unknown as JoinGamePayload;
 
     if (!games.has(gameId)) {
       // Throw error? Emit a specific 'NoGameFound' message?
@@ -113,7 +120,7 @@ io.on("connection", (socket) => {
       const updatedGame: Game = {
         ...games.get(gameId),
         isStarted: true,
-        player2: userId,
+        player2: client,
       };
 
       games.set(gameId, updatedGame);
@@ -121,7 +128,14 @@ io.on("connection", (socket) => {
       const sanitizedBoard = generateSanitizedBoard(updatedGame.board);
 
       // Use io instead of socket to emit to all, including the sender
-      io.to(gameId).emit("gameStarted", { board: sanitizedBoard });
+      // emit GameState
+      io.to(gameId).emit("gameStarted", {
+        game: {
+          id: gameId,
+          board: sanitizedBoard,
+          currentTurn: updatedGame.creator.publicId,
+        },
+      });
     }
 
     // Also need to handle trying to join a game that you are already in
@@ -132,34 +146,13 @@ io.on("connection", (socket) => {
     // Can I get the gameID from the room that the socket is in?
     // Looks like this is possile, would just need to make sure that a socket is not in more than 1 room
 
-    const { gameId, userId, tile } = payload as unknown as MoveMadePayload;
+    const { gameId, client, tile } = payload as unknown as MoveMadePayload;
 
     const game = games.get(gameId);
+    const moveStatus = getMoveStatus(game, tile, client);
 
-    if (!game) {
-      console.log("Exit, the game doesn't exist");
-      return;
-    }
-
-    if (game.moves.length === 0) {
-      if (userId !== game.creator) {
-        console.log("Exit, the creator needs to make the first move");
-        return;
-      }
-    } else {
-      if (userId === game.moves[game.moves.length - 1].player) {
-        console.log("Exit, this player has tried to make 2 moves in a row");
-        return;
-      }
-    }
-
-    if (tile.row >= game.board.length || tile.column >= game.board[0].length) {
-      console.log("Exit, this tile does not exist on the board");
-      return;
-    }
-
-    if (game.board[tile.row][tile.column].isRevealed) {
-      console.log("Exit, this tile has already be revelaed");
+    if (moveStatus.status === MoveStatus.ILLEGAL) {
+      console.log(`Illegal Move: ${moveStatus.message}`);
       return;
     }
 
@@ -179,7 +172,7 @@ io.on("connection", (socket) => {
 
     // Check if this is a bomb spot or not
     if (isBombSpot(updatedBoard, tile.row, tile.column)) {
-      // Figure out what should happen here from a gameplay perspective
+      // TODO: Figure out what should happen here from a gameplay perspective
     } else {
       updatedBoard = updateTileAndNeighbors(
         updatedBoard,
@@ -190,23 +183,31 @@ io.on("connection", (socket) => {
       // TODO: Calculate if the game is over
     }
 
-    // Persist the updated game
-    games.set(gameId, {
+    // Update the game
+    const updatedGame: Game = {
       ...game,
       board: updatedBoard,
-      // TODO: add the move to the list
+    };
+
+    // Add the latest move to the list
+    updatedGame.moves.push({
+      tile,
+      client,
     });
 
+    // Persist the updated game
+    games.set(gameId, updatedGame);
+
     const sanitizedBoard = generateSanitizedBoard(updatedBoard);
+    const currentTurn = getCurrentTurn(updatedGame).publicId;
 
-    io.to(gameId).emit("moveMade", { board: sanitizedBoard });
-
-    // I need to be emiting whose turn it is, so that the client knows who is up
-    // I might need a private and public id. The public id is sent and helps the client identify who is up
-    // The private id is used to actually make the move
-    // Or maybe I could emit to a specific socket
-
-    // I kind of like the idea of the server just emitting the state and the client deciding what to show (if you are up or not)
+    io.to(gameId).emit("moveMade", {
+      game: {
+        id: gameId,
+        board: sanitizedBoard,
+        currentTurn,
+      },
+    });
   });
 });
 
@@ -214,9 +215,77 @@ const PORT = Number(process.env.PORT) || 3001;
 
 const opts: Partial<ServerOptions> = {
   cors: {
-    origin: "http://localhost:3000",
+    origin: "*",
     allowedHeaders: ["Access-Control-Allow-Origin"],
   },
 };
 
 io.listen(PORT, opts);
+
+// Given a game board, calculate who has the next turn
+const getCurrentTurn = (game: Game): ClientInfo => {
+  const lastTurn = game.moves[game.moves.length - 1].client.privateId;
+
+  return lastTurn === game.player1.privateId ? game.player2 : game.player1;
+};
+
+// These move related type names are terrible, fix this
+enum MoveStatus {
+  UNKNOWN = "UNKNOWN",
+  LEGAL = "LEGAL",
+  ILLEGAL = "ILLEGAL",
+}
+
+type MoveLegallity = {
+  status: MoveStatus;
+  message?: string;
+};
+
+const getMoveStatus = (
+  game: Game,
+  tile: Tile,
+  client: ClientInfo
+): MoveLegallity => {
+  if (!game) {
+    return {
+      status: MoveStatus.ILLEGAL,
+      message: "The game doesn't exist",
+    };
+  }
+
+  if (game.moves.length === 0) {
+    if (client.privateId !== game.creator.privateId) {
+      return {
+        status: MoveStatus.ILLEGAL,
+        message: "The creator needs to make the first move",
+      };
+    }
+  } else {
+    if (
+      client.privateId === game.moves[game.moves.length - 1].client.privateId
+    ) {
+      return {
+        status: MoveStatus.ILLEGAL,
+        message: "It is not this players turn to make a move",
+      };
+    }
+  }
+
+  if (tile.row >= game.board.length || tile.column >= game.board[0].length) {
+    return {
+      status: MoveStatus.ILLEGAL,
+      message: "This tile does not exist on the board",
+    };
+  }
+
+  if (game.board[tile.row][tile.column].isRevealed) {
+    return {
+      status: MoveStatus.ILLEGAL,
+      message: "This tile has already been revelaed",
+    };
+  }
+
+  return {
+    status: MoveStatus.LEGAL,
+  };
+};

@@ -10,15 +10,26 @@ export type GameBoard = Tile[][];
 
 export type Move = {
   tile: Tile;
-  player: string;
+  client: ClientInfo;
 };
 
 export type Game = {
   id: string;
   board: GameBoard;
   isStarted: boolean;
-  creator: string;
-  player1: string;
-  player2: string | undefined;
+  creator: ClientInfo;
+  player1: ClientInfo;
+  player2: ClientInfo | undefined;
   moves: Move[];
+};
+
+export type GameState = {
+  id: string;
+  board: GameBoard;
+  currentTurn: string;
+};
+
+export type ClientInfo = {
+  privateId: string;
+  publicId: string;
 };

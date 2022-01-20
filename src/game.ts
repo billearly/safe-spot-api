@@ -1,5 +1,12 @@
 import { GameBoard, Tile } from "./types";
 
+/**
+ * TODO:
+ * Consider renaming this whole file board.ts as its really board manipulation
+ * Allows me to make a game.ts that can hold higher level game functions like
+ * getNextTurn, isLegalMove, etc
+ */
+
 export const instantiateSafeBoard = (
   rows: number,
   columns: number
