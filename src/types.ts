@@ -32,4 +32,51 @@ export type GameState = {
 export type ClientInfo = {
   privateId: string;
   publicId: string;
+  socketId: string;
 };
+
+// This needs to be the same shape as the API Gateway routed message
+export type Payload = {
+  action: ClientAction;
+};
+
+export type CreateGamePayload = Payload & {
+  data: {
+    client: ClientInfo;
+  };
+};
+
+export type JoinGamePayload = Payload & {
+  data: {
+    gameId: string;
+    client: ClientInfo;
+  };
+};
+
+export type MakeMovePayload = Payload & {
+  data: {
+    gameId: string;
+    client: ClientInfo;
+    tile: Tile;
+  };
+};
+
+export type NewConnectionPayload = Payload & {
+  requestContext: {
+    connectionId: string;
+  };
+};
+
+export enum ClientAction {
+  CONNECT = "connect",
+  CREATE_GAME = "createGame",
+  JOIN_GAME = "joinGame",
+  MAKE_MOVE = "makeMove",
+}
+
+export enum ServerAction {
+  CONNECTED = "connected",
+  GAME_CREATED = "gameCreated",
+  GAME_STARTED = "gameStarted",
+  MOVE_MADE = "moveMade",
+}
