@@ -14,7 +14,7 @@ export type Move = {
 };
 
 export type Game = {
-  id: string;
+  displayId: string;
   board: GameBoard;
   isStarted: boolean;
   creator: ClientInfo;

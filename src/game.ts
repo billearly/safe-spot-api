@@ -8,7 +8,7 @@ import {
   updateTileAndNeighbors,
 } from "./board";
 import { emit } from "./emitter";
-import { getGame, saveGame } from "./persistence";
+import { getGame, saveGame, updateGame } from "./persistence";
 import {
   CreateGamePayload,
   JoinGamePayload,
@@ -28,25 +28,23 @@ const columns = 15;
 const bombPercentage = 18;
 const numBombs = Math.floor(rows * columns * (bombPercentage / 100));
 
-export const createGame = (payload: CreateGamePayload) => {
+export const createGame = async (payload: CreateGamePayload) => {
   const { client } = payload.data;
 
   let gameCreated = false;
   let gameId: string;
   let newGame: Game;
 
-  // Now that this involves persistence the loop seems ill advised
-  // But really how many times would it realistically run?
   while (!gameCreated) {
     gameId = nanoid();
 
-    const existingGame = getGame(gameId);
+    const existingGame = await getGame(gameId);
 
     if (!existingGame) {
       const gameBoard = instantiateSafeBoard(rows, columns);
 
       newGame = {
-        id: gameId,
+        displayId: gameId,
         board: gameBoard,
         isStarted: false,
         creator: client,
@@ -55,7 +53,7 @@ export const createGame = (payload: CreateGamePayload) => {
         moves: [],
       };
 
-      saveGame(newGame);
+      await saveGame(newGame);
 
       gameCreated = true;
     }
@@ -72,10 +70,10 @@ export const createGame = (payload: CreateGamePayload) => {
   });
 };
 
-export const joinGame = (payload: JoinGamePayload) => {
+export const joinGame = async (payload: JoinGamePayload) => {
   const { gameId, client } = payload.data;
 
-  const game = getGame(gameId);
+  const game = await getGame(gameId);
 
   if (!game) {
     // Throw error? Emit a specific 'NoGameFound' message?
@@ -86,7 +84,7 @@ export const joinGame = (payload: JoinGamePayload) => {
       player2: client,
     };
 
-    saveGame(updatedGame);
+    await updateGame(updatedGame);
 
     const sanitizedBoard = generateSanitizedBoard(updatedGame.board);
 
@@ -106,12 +104,13 @@ export const joinGame = (payload: JoinGamePayload) => {
   }
 
   // Also need to handle trying to join a game that you are already in
+  // trying to join a game that already has 2 players
 };
 
-export const makeMove = (payload: MakeMovePayload) => {
+export const makeMove = async (payload: MakeMovePayload) => {
   const { gameId, client, tile } = payload.data;
 
-  const game = getGame(gameId);
+  const game = await getGame(gameId);
   const moveStatus = getMoveStatus(game, tile, client);
 
   if (moveStatus.status === MoveStatus.ILLEGAL) {
@@ -155,7 +154,7 @@ export const makeMove = (payload: MakeMovePayload) => {
   });
 
   // Persist the updated game
-  saveGame(updatedGame);
+  await updateGame(updatedGame);
 
   const sanitizedBoard = generateSanitizedBoard(updatedBoard);
   const currentTurn = getCurrentTurn(updatedGame).publicId;

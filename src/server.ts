@@ -37,23 +37,23 @@ wss.on("connection", (socket: CustomWebSocket) => {
     },
   });
 
-  socket.on("message", (message: string) => {
+  socket.on("message", async (message: string) => {
     const payload: Payload = JSON.parse(message.toString());
 
     switch (payload.action) {
       case ClientAction.CREATE_GAME:
         const createGamePayload = payload as CreateGamePayload;
-        createGame(createGamePayload); // Validate the shape? typeguard?
+        await createGame(createGamePayload); // Validate the shape? typeguard?
         break;
 
       case ClientAction.JOIN_GAME:
         const joinGamePayload = payload as JoinGamePayload;
-        joinGame(joinGamePayload);
+        await joinGame(joinGamePayload);
         break;
 
       case ClientAction.MAKE_MOVE:
         const makeMovePayload = payload as MakeMovePayload;
-        makeMove(makeMovePayload);
+        await makeMove(makeMovePayload);
         break;
 
       default:
