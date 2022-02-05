@@ -51,7 +51,7 @@ export const createGame = async (payload: LambdaEvent) => {
     }
   }
 
-  emit({
+  const response = await emit({
     to: [newGame.creator.socketId],
     payload: {
       action: ServerAction.GAME_CREATED,
@@ -59,7 +59,11 @@ export const createGame = async (payload: LambdaEvent) => {
         gameId,
       },
     },
+    requestContext: payload.requestContext,
   });
+
+  // This signals to the Lambda that the function existed (success or failure)
+  return response;
 };
 
 // Lambda

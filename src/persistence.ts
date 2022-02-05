@@ -4,18 +4,9 @@ import { ClientInfo, Game, GameBoard, Move, Tile } from "./types";
 type MongoConnection = typeof import("mongoose");
 let connection: MongoConnection;
 
-connect(process.env.MONGO_URI)
-  .then((conn) => {
-    console.log("connected");
-    connection = conn;
-  })
-  .catch((e) => {
-    console.error(e);
-  });
-
 export const saveGame = async (game: Game): Promise<void> => {
   if (!connection) {
-    throw new Error("No db connection");
+    connection = await connect(process.env.MONGO_URI);
   }
 
   try {
@@ -28,7 +19,7 @@ export const saveGame = async (game: Game): Promise<void> => {
 
 export const getGame = async (displayId: string): Promise<Game> => {
   if (!connection) {
-    throw new Error("No connection");
+    connection = await connect(process.env.MONGO_URI);
   }
 
   try {
@@ -42,7 +33,7 @@ export const getGame = async (displayId: string): Promise<Game> => {
 
 export const updateGame = async (game: Game): Promise<void> => {
   if (!connection) {
-    throw new Error("No connection");
+    connection = await connect(process.env.MONGO_URI);
   }
 
   try {

@@ -33,19 +33,16 @@ type CustomWebSocket = WebSocket & {
 wss.on("connection", (socket: CustomWebSocket) => {
   socket.id = nanoid();
 
-  // Send the client its socket ID
-  handleNewConnection({
-    requestContext: {
-      domain: "domain",
-      stage: "stage",
-      connectionId: socket.id,
-    },
-  });
-
   socket.on("message", async (message: string) => {
     const payload: APIGatewayPayload = JSON.parse(message.toString());
 
     switch (payload.action) {
+      case ClientAction.GET_SOCKET_INFO:
+        console.log(socket.id, "actual socket id");
+        const getSocketInfoEvent = createLambdaEvent(socket.id);
+        await handleNewConnection(getSocketInfoEvent);
+        break;
+
       case ClientAction.CREATE_GAME:
         const createGamePayload = payload as CreateGameAPIGatewayPayload;
         const createGameEvent = createLambdaEvent(socket.id, createGamePayload);
@@ -65,6 +62,7 @@ wss.on("connection", (socket: CustomWebSocket) => {
         break;
 
       default:
+        console.error(`${payload.action} is not a valid action`);
       // TODO: handle error
     }
   });
@@ -72,18 +70,18 @@ wss.on("connection", (socket: CustomWebSocket) => {
 
 const createLambdaEvent = (
   socketId: string,
-  payload:
+  payload?:
     | CreateGameAPIGatewayPayload
     | JoinGameAPIGatewayPayload
     | MakeMoveAPIGatewayPayload
 ): LambdaEvent => {
   return {
     requestContext: {
-      domain: "domain",
-      stage: "stage",
+      domainName: "domain-local",
+      stage: "stage-local",
       connectionId: socketId,
     },
-    body: JSON.stringify({ data: payload.data }),
+    body: payload ? JSON.stringify({ data: payload.data }) : undefined,
   };
 };
 

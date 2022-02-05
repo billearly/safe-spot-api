@@ -27,7 +27,7 @@ export const joinGame = async (payload: LambdaEvent) => {
 
     const sanitizedBoard = generateSanitizedBoard(updatedGame.board);
 
-    emit({
+    const response = await emit({
       to: [updatedGame.player1.socketId, updatedGame.player2.socketId],
       payload: {
         action: ServerAction.GAME_STARTED, // For now joining a game instantly starts it
@@ -39,7 +39,10 @@ export const joinGame = async (payload: LambdaEvent) => {
           },
         },
       },
+      requestContext: payload.requestContext,
     });
+
+    return response;
   }
 
   // Also need to handle trying to join a game that you are already in

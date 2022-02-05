@@ -76,7 +76,7 @@ export const makeMove = async (payload: LambdaEvent) => {
   const currentTurn = getCurrentTurn(updatedGame).publicId;
 
   // Emit to all clients
-  emit({
+  const response = await emit({
     to: [updatedGame.player1.socketId, updatedGame.player2.socketId],
     payload: {
       action: ServerAction.MOVE_MADE,
@@ -88,7 +88,10 @@ export const makeMove = async (payload: LambdaEvent) => {
         },
       },
     },
+    requestContext: payload.requestContext,
   });
+
+  return response;
 };
 
 // Given a game board, calculate who has the next turn

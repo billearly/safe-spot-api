@@ -70,7 +70,7 @@ export type NewConnectionAPIGatewayPayload = APIGatewayPayload & {
 // This is the object that API Gateway sends to the Lambda
 export type LambdaEvent = {
   requestContext: {
-    domain: string;
+    domainName: string;
     stage: string;
     connectionId: string;
   };
@@ -80,14 +80,14 @@ export type LambdaEvent = {
 // The third category is objects sent back to clients
 
 export enum ClientAction {
-  CONNECT = "connect",
+  GET_SOCKET_INFO = "getSocketInfo",
   CREATE_GAME = "createGame",
   JOIN_GAME = "joinGame",
   MAKE_MOVE = "makeMove",
 }
 
 export enum ServerAction {
-  CONNECTED = "connected",
+  GIVE_SOCKET_INFO = "giveSocketInfo",
   GAME_CREATED = "gameCreated",
   GAME_STARTED = "gameStarted",
   MOVE_MADE = "moveMade",
