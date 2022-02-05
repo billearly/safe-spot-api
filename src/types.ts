@@ -35,25 +35,25 @@ export type ClientInfo = {
   socketId: string;
 };
 
-// This needs to be the same shape as the API Gateway routed message
-export type Payload = {
+// This is the object that clients send to API Gateway
+export type APIGatewayPayload = {
   action: ClientAction;
 };
 
-export type CreateGamePayload = Payload & {
+export type CreateGameAPIGatewayPayload = APIGatewayPayload & {
   data: {
     client: ClientInfo;
   };
 };
 
-export type JoinGamePayload = Payload & {
+export type JoinGameAPIGatewayPayload = APIGatewayPayload & {
   data: {
     gameId: string;
     client: ClientInfo;
   };
 };
 
-export type MakeMovePayload = Payload & {
+export type MakeMoveAPIGatewayPayload = APIGatewayPayload & {
   data: {
     gameId: string;
     client: ClientInfo;
@@ -61,11 +61,23 @@ export type MakeMovePayload = Payload & {
   };
 };
 
-export type NewConnectionPayload = Payload & {
+export type NewConnectionAPIGatewayPayload = APIGatewayPayload & {
   requestContext: {
     connectionId: string;
   };
 };
+
+// This is the object that API Gateway sends to the Lambda
+export type LambdaEvent = {
+  requestContext: {
+    domain: string;
+    stage: string;
+    connectionId: string;
+  };
+  body?: string;
+};
+
+// The third category is objects sent back to clients
 
 export enum ClientAction {
   CONNECT = "connect",

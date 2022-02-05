@@ -19,7 +19,7 @@ export const saveGame = async (game: Game): Promise<void> => {
   }
 
   try {
-    const gameModel = new GameModel<Game>(game);
+    const gameModel = new GameModel(game);
     await gameModel.save();
   } catch (e) {
     console.error(e);
@@ -33,7 +33,7 @@ export const getGame = async (displayId: string): Promise<Game> => {
 
   try {
     const model = await GameModel.findOne({ displayId });
-    const game = model.toObject(); // TODO: model was sometimes null??
+    const game = model?.toObject();
     return game;
   } catch (e) {
     console.error(e);

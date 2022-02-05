@@ -5,18 +5,22 @@ import "dotenv/config";
 import * as express from "express";
 import * as http from "http";
 import * as WebSocket from "ws";
-import { createGame, joinGame, makeMove } from "./game";
 import {
   ClientAction,
-  CreateGamePayload,
-  JoinGamePayload,
-  MakeMovePayload,
-  Payload,
+  CreateGameAPIGatewayPayload,
+  JoinGameAPIGatewayPayload,
+  MakeMoveAPIGatewayPayload,
+  APIGatewayPayload,
   ServerAction,
+  LambdaEvent,
 } from "./types";
 import { nanoid } from "nanoid";
-import { emit } from "./emitter";
-import { handleNewConnection } from "./connected";
+import {
+  createGame,
+  handleNewConnection,
+  joinGame,
+  makeMove,
+} from "./functions";
 
 const app = express();
 const server = http.createServer(app);
@@ -31,29 +35,33 @@ wss.on("connection", (socket: CustomWebSocket) => {
 
   // Send the client its socket ID
   handleNewConnection({
-    action: ClientAction.CONNECT,
     requestContext: {
+      domain: "domain",
+      stage: "stage",
       connectionId: socket.id,
     },
   });
 
   socket.on("message", async (message: string) => {
-    const payload: Payload = JSON.parse(message.toString());
+    const payload: APIGatewayPayload = JSON.parse(message.toString());
 
     switch (payload.action) {
       case ClientAction.CREATE_GAME:
-        const createGamePayload = payload as CreateGamePayload;
-        await createGame(createGamePayload); // Validate the shape? typeguard?
+        const createGamePayload = payload as CreateGameAPIGatewayPayload;
+        const createGameEvent = createLambdaEvent(socket.id, createGamePayload);
+        await createGame(createGameEvent); // Validate the shape? typeguard?
         break;
 
       case ClientAction.JOIN_GAME:
-        const joinGamePayload = payload as JoinGamePayload;
-        await joinGame(joinGamePayload);
+        const joinGamePayload = payload as JoinGameAPIGatewayPayload;
+        const joinGameEvent = createLambdaEvent(socket.id, joinGamePayload);
+        await joinGame(joinGameEvent);
         break;
 
       case ClientAction.MAKE_MOVE:
-        const makeMovePayload = payload as MakeMovePayload;
-        await makeMove(makeMovePayload);
+        const makeMovePayload = payload as MakeMoveAPIGatewayPayload;
+        const makeMoveEvent = createLambdaEvent(socket.id, makeMovePayload);
+        await makeMove(makeMoveEvent);
         break;
 
       default:
@@ -61,6 +69,23 @@ wss.on("connection", (socket: CustomWebSocket) => {
     }
   });
 });
+
+const createLambdaEvent = (
+  socketId: string,
+  payload:
+    | CreateGameAPIGatewayPayload
+    | JoinGameAPIGatewayPayload
+    | MakeMoveAPIGatewayPayload
+): LambdaEvent => {
+  return {
+    requestContext: {
+      domain: "domain",
+      stage: "stage",
+      connectionId: socketId,
+    },
+    body: JSON.stringify({ data: payload.data }),
+  };
+};
 
 export const sendToSockets = (
   to: string[],

@@ -1,114 +1,30 @@
-import { customAlphabet } from "nanoid";
 import {
   addBombsToBoard,
   calculateDisplayNums,
   generateSanitizedBoard,
-  instantiateSafeBoard,
   isBombSpot,
   updateTileAndNeighbors,
-} from "./board";
-import { emit } from "./emitter";
-import { getGame, saveGame, updateGame } from "./persistence";
+} from "../board";
+import { emit } from "../emitter";
+import { getGame, updateGame } from "../persistence";
 import {
-  CreateGamePayload,
-  JoinGamePayload,
-  Game,
-  ServerAction,
-  MakeMovePayload,
   ClientInfo,
-  Tile,
+  Game,
   GameBoard,
-} from "./types";
+  LambdaEvent,
+  MakeMoveAPIGatewayPayload,
+  ServerAction,
+  Tile,
+} from "../types";
 
-// TODO: This file will probs be broken out into their own function files.
-// And the game specific functions (isLegalMove, etc) can stay in here
-const nanoid = customAlphabet("1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ", 6);
-const rows = 10;
-const columns = 15;
-const bombPercentage = 18;
-const numBombs = Math.floor(rows * columns * (bombPercentage / 100));
+export const makeMove = async (payload: LambdaEvent) => {
+  const numRows = Number(process.env.BOARD_NUM_ROWS) || 10;
+  const numColumns = Number(process.env.BOMB_NUM_COLUMNS) || 15;
+  const bombPercentage = Number(process.env.BOARD_BOMB_PERCENTAGE) || 18;
+  const numBombs = Math.floor(numRows * numColumns * (bombPercentage / 100));
 
-export const createGame = async (payload: CreateGamePayload) => {
-  const { client } = payload.data;
-
-  let gameCreated = false;
-  let gameId: string;
-  let newGame: Game;
-
-  while (!gameCreated) {
-    gameId = nanoid();
-
-    const existingGame = await getGame(gameId);
-
-    if (!existingGame) {
-      const gameBoard = instantiateSafeBoard(rows, columns);
-
-      newGame = {
-        displayId: gameId,
-        board: gameBoard,
-        isStarted: false,
-        creator: client,
-        player1: client,
-        player2: undefined,
-        moves: [],
-      };
-
-      await saveGame(newGame);
-
-      gameCreated = true;
-    }
-  }
-
-  emit({
-    to: [newGame.creator.socketId],
-    payload: {
-      action: ServerAction.GAME_CREATED,
-      data: {
-        gameId,
-      },
-    },
-  });
-};
-
-export const joinGame = async (payload: JoinGamePayload) => {
-  const { gameId, client } = payload.data;
-
-  const game = await getGame(gameId);
-
-  if (!game) {
-    // Throw error? Emit a specific 'NoGameFound' message?
-  } else {
-    const updatedGame: Game = {
-      ...game,
-      isStarted: true,
-      player2: client,
-    };
-
-    await updateGame(updatedGame);
-
-    const sanitizedBoard = generateSanitizedBoard(updatedGame.board);
-
-    emit({
-      to: [updatedGame.player1.socketId, updatedGame.player2.socketId],
-      payload: {
-        action: ServerAction.GAME_STARTED, // For now joining a game instantly starts it
-        data: {
-          game: {
-            id: gameId,
-            board: sanitizedBoard,
-            currentTurn: updatedGame.creator.publicId,
-          },
-        },
-      },
-    });
-  }
-
-  // Also need to handle trying to join a game that you are already in
-  // trying to join a game that already has 2 players
-};
-
-export const makeMove = async (payload: MakeMovePayload) => {
-  const { gameId, client, tile } = payload.data;
+  const body = JSON.parse(payload.body) as MakeMoveAPIGatewayPayload;
+  const { gameId, client, tile } = body.data;
 
   const game = await getGame(gameId);
   const moveStatus = getMoveStatus(game, tile, client);
@@ -242,3 +158,6 @@ const getMoveStatus = (
     status: MoveStatus.LEGAL,
   };
 };
+
+const handler = makeMove;
+export default handler;
