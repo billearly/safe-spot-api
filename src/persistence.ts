@@ -74,6 +74,7 @@ const moveSchema = new Schema<Move>(
 const gameSchema = new Schema<Game>({
   displayId: String,
   board: [[tileSchema]],
+  status: String,
   isStarted: Boolean,
   creator: clientInfoSchema,
   player1: clientInfoSchema,

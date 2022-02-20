@@ -2,7 +2,10 @@ import {
   addBombsToBoard,
   calculateDisplayNums,
   generateSanitizedBoard,
+  getBombSpots,
+  getNumSafeSpotsLeft,
   isBombSpot,
+  revealBombSpots,
   updateTileAndNeighbors,
 } from "../board";
 import { emit } from "../emitter";
@@ -11,6 +14,7 @@ import {
   ClientInfo,
   Game,
   GameBoard,
+  GameStatus,
   LambdaEvent,
   MakeMoveAPIGatewayPayload,
   ServerAction,
@@ -48,18 +52,29 @@ export const makeMove = async (payload: LambdaEvent) => {
     updatedBoard = calculateDisplayNums(updatedBoard);
   }
 
+  let status: GameStatus = GameStatus.IN_PROGRESS;
   // Check if this is a bomb spot or not
   if (isBombSpot(updatedBoard, tile.row, tile.column)) {
-    // TODO: Figure out what should happen here from a gameplay perspective
+    status = GameStatus.LOST;
+
+    // Reveal all the bomb spots, this seems less than optimal
+    // This is a remnant of this living on the server
+    // This could be one call
+    const bombSpots = getBombSpots(updatedBoard);
+    updatedBoard = revealBombSpots(updatedBoard, bombSpots);
   } else {
     updatedBoard = updateTileAndNeighbors(updatedBoard, tile.row, tile.column);
 
-    // TODO: Calculate if the game is over
+    const numSafeSpotsLeft = getNumSafeSpotsLeft(updatedBoard);
+    if (numSafeSpotsLeft === 0) {
+      status = GameStatus.WON;
+    }
   }
 
   // Update the game
   const updatedGame: Game = {
     ...game,
+    status,
     board: updatedBoard,
   };
 
@@ -83,6 +98,7 @@ export const makeMove = async (payload: LambdaEvent) => {
       data: {
         game: {
           id: gameId,
+          status: updatedGame.status,
           board: sanitizedBoard,
           currentTurn,
         },

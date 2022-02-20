@@ -1,3 +1,10 @@
+export enum GameStatus {
+  WAITING_FOR_PLAYER = "WAITING_FOR_PLAYER",
+  IN_PROGRESS = "IN_PROGRESS",
+  WON = "WON",
+  LOST = "LOST",
+}
+
 export type Tile = {
   row: number;
   column: number;
@@ -17,12 +24,14 @@ export type Game = {
   displayId: string;
   board: GameBoard;
   isStarted: boolean;
+  status: GameStatus;
   creator: ClientInfo;
   player1: ClientInfo;
   player2: ClientInfo | undefined;
   moves: Move[];
 };
 
+// I don't think this is used anywhere
 export type GameState = {
   id: string;
   board: GameBoard;

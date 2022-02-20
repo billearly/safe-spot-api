@@ -5,6 +5,7 @@ import { getGame, saveGame } from "../persistence";
 import {
   CreateGameAPIGatewayPayload,
   Game,
+  GameStatus,
   LambdaEvent,
   ServerAction,
 } from "../types";
@@ -39,6 +40,7 @@ export const createGame = async (payload: LambdaEvent) => {
         displayId: gameId,
         board: gameBoard,
         isStarted: false,
+        status: GameStatus.WAITING_FOR_PLAYER,
         creator: client,
         player1: client,
         player2: undefined,

@@ -3,6 +3,7 @@ import { emit } from "../emitter";
 import { getGame, updateGame } from "../persistence";
 import {
   Game,
+  GameStatus,
   JoinGameAPIGatewayPayload,
   LambdaEvent,
   ServerAction,
@@ -19,6 +20,7 @@ export const joinGame = async (payload: LambdaEvent) => {
   } else {
     const updatedGame: Game = {
       ...game,
+      status: GameStatus.IN_PROGRESS,
       isStarted: true,
       player2: client,
     };
@@ -34,6 +36,7 @@ export const joinGame = async (payload: LambdaEvent) => {
         data: {
           game: {
             id: gameId,
+            status: updatedGame.status,
             board: sanitizedBoard,
             currentTurn: updatedGame.creator.publicId,
           },
